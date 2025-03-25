@@ -1,9 +1,13 @@
 const express = require("express");
+const cors = require("cors");
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 
 const app = express();
 const port = 3000;
+
+// Permitir CORS de qualquer origem (recomendado para produção restringir)
+app.use(cors());
 
 app.use(express.json());
 
