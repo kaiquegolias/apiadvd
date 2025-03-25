@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
-const multer = require("multer"); // Adicionado para lidar com upload de arquivos
+const multer = require("multer");
 const path = require("path");
 
 const app = express();
@@ -11,26 +11,24 @@ const port = 3000;
 // Configuração do multer para upload de PDFs
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/') // Pasta onde os arquivos serão salvos
+    cb(null, 'uploads/')
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)) // Nome do arquivo
+    cb(null, Date.now() + path.extname(file.originalname))
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: function (req, file, cb) {
-    if (path.extname(file.originalname) !== '.pdf') {
+    if (file.fieldname === 'documento_pdf' && path.extname(file.originalname) !== '.pdf') {
       return cb(new Error('Apenas arquivos PDF são permitidos'))
     }
     cb(null, true)
   }
 });
 
-// Permitir CORS de qualquer origem (recomendado para produção restringir)
 app.use(cors());
-
 app.use(express.json());
 
 let orcamentos = [];
@@ -63,21 +61,51 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *           schema:
  *             type: object
  *             properties:
- *               documentos:
+ *               nome:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               telefone:
+ *                 type: string
+ *               documento_pdf:
  *                 type: string
  *                 format: binary
  *                 description: Arquivo PDF para upload
+ *               dados_adicionais:
+ *                 type: string
+ *                 description: JSON string com os dados adicionais
  *     responses:
  *       200:
- *         description: Documentos recebidos com sucesso
+ *         description: Documentos e dados recebidos com sucesso
  */
-app.post("/orcamento", upload.single('documentos'), (req, res) => {
-  const orcamento = {
-    ...req.body,
-    arquivo: req.file ? req.file.filename : null
-  };
-  orcamentos.push(orcamento);
-  res.status(200).json({ message: "Documentos recebidos com sucesso!", data: orcamento });
+app.post("/orcamento", upload.single('documento_pdf'), (req, res) => {
+  try {
+    const { nome, email, telefone, dados_adicionais } = req.body;
+    
+    let dadosExtras = {};
+    try {
+      dadosExtras = dados_adicionais ? JSON.parse(dados_adicionais) : {};
+    } catch (e) {
+      console.error("Erro ao parsear dados_adicionais:", e);
+    }
+
+    const orcamento = {
+      infoBasicas: { nome, email, telefone },
+      ...dadosExtras,
+      arquivo: req.file ? req.file.filename : null,
+      dataRecebimento: new Date()
+    };
+
+    orcamentos.push(orcamento);
+    
+    res.status(200).json({ 
+      message: "Documentos e dados recebidos com sucesso!", 
+      data: orcamento 
+    });
+  } catch (error) {
+    console.error("Erro no processamento:", error);
+    res.status(500).json({ error: "Erro ao processar a solicitação" });
+  }
 });
 
 /**
