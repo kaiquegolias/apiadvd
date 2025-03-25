@@ -2,9 +2,31 @@ const express = require("express");
 const cors = require("cors");
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
+const multer = require("multer"); // Adicionado para lidar com upload de arquivos
+const path = require("path");
 
 const app = express();
 const port = 3000;
+
+// Configuração do multer para upload de PDFs
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/') // Pasta onde os arquivos serão salvos
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname)) // Nome do arquivo
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    if (path.extname(file.originalname) !== '.pdf') {
+      return cb(new Error('Apenas arquivos PDF são permitidos'))
+    }
+    cb(null, true)
+  }
+});
 
 // Permitir CORS de qualquer origem (recomendado para produção restringir)
 app.use(cors());
@@ -37,82 +59,23 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
  *               documentos:
- *                 type: object
- *                 properties:
- *                   identidade_rg:
- *                     type: string
- *                   cpf:
- *                     type: string
- *                   titulo_eleitor:
- *                     type: string
- *                     nullable: true
- *                   pis_pasep_nit:
- *                     type: string
- *                   comprovante_residencia:
- *                     type: string
- *                   carteira_trabalho:
- *                     type: string
- *                   contrato_trabalho:
- *                     type: string
- *                     nullable: true
- *                   holerites:
- *                     type: array
- *                     items:
- *                       type: string
- *                   comprovantes_pagamento:
- *                     type: array
- *                     items:
- *                       type: string
- *                   comunicacao_demissao:
- *                     type: string
- *                     nullable: true
- *                   recibos_ferias_13:
- *                     type: string
- *                   comprovante_fgts:
- *                     type: string
- *                   comprovante_horas_extras:
- *                     type: string
- *                   adicional_noturno:
- *                     type: string
- *                     nullable: true
- *                   avisos_previos:
- *                     type: string
- *                     nullable: true
- *                   comprovante_desvio_funcao:
- *                     type: string
- *                     nullable: true
- *                   testemunhas:
- *                     type: array
- *                     items:
- *                       type: object
- *                       properties:
- *                         nome:
- *                           type: string
- *                         contato:
- *                           type: string
- *                   provas_adicionais:
- *                     type: array
- *                     items:
- *                       type: string
- *                   cnpj_empresa:
- *                     type: string
- *                   nome_empregador:
- *                     type: string
- *                   endereco_empresa:
- *                     type: string
- *                   contato_rh:
- *                     type: string
+ *                 type: string
+ *                 format: binary
+ *                 description: Arquivo PDF para upload
  *     responses:
  *       200:
  *         description: Documentos recebidos com sucesso
  */
-app.post("/orcamento", (req, res) => {
-  const orcamento = req.body;
+app.post("/orcamento", upload.single('documentos'), (req, res) => {
+  const orcamento = {
+    ...req.body,
+    arquivo: req.file ? req.file.filename : null
+  };
   orcamentos.push(orcamento);
   res.status(200).json({ message: "Documentos recebidos com sucesso!", data: orcamento });
 });
